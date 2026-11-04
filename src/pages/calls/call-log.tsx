@@ -1,4 +1,6 @@
 import {
+  ArrowDownLeft,
+  ArrowUpRight,
   ArrowDown,
   ArrowUp,
   CalendarDays,
@@ -7,12 +9,21 @@ import {
   Search,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/auth";
@@ -79,9 +90,23 @@ function SortHeader({
   );
 }
 
-function CallTableRow({ call }: { call: ApiCall }) {
+function CallTableRow({ call, onSelect }: { call: ApiCall; onSelect: (call: ApiCall) => void }) {
   return (
-    <TableRow>
+    <TableRow
+      className="cursor-pointer"
+      tabIndex={0}
+      aria-label={`View call details: ${call.lead_name}, ${formatCallDate(call.call_timestamp)}`}
+      onClick={(event) => {
+        if (!(event.target as HTMLElement).closest("a, button")) onSelect(call);
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(call);
+        }
+      }}
+    >
       <TableCell className="text-muted-foreground text-xs">
         <time dateTime={call.call_timestamp}>{formatCallDate(call.call_timestamp)}</time>
       </TableCell>
@@ -126,8 +151,116 @@ function CallTableRow({ call }: { call: ApiCall }) {
   );
 }
 
+function fullDateTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full",
+    timeStyle: "long",
+    timeZone: "Asia/Kathmandu",
+  }).format(new Date(value));
+}
+
+function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <dt className="text-muted-foreground font-mono text-[11px] font-semibold tracking-wider uppercase">
+        {label}
+      </dt>
+      <dd className="text-sm break-words">{children || "—"}</dd>
+    </div>
+  );
+}
+
+function CallDetailSheet({
+  call,
+  onOpenChange,
+}: {
+  call: ApiCall | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet open={call !== null} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-lg">
+        {call && (
+          <>
+            <SheetHeader>
+              <SheetTitle>Call details</SheetTitle>
+              <SheetDescription>
+                {call.lead_name} · {fullDateTime(call.call_timestamp)}
+              </SheetDescription>
+            </SheetHeader>
+            <SheetBody>
+              <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+                <DetailField label="Date and time">
+                  <time dateTime={call.call_timestamp}>{fullDateTime(call.call_timestamp)}</time>
+                </DetailField>
+                <DetailField label="Direction">
+                  <span className="inline-flex items-center gap-1.5 capitalize">
+                    {call.direction === "inbound" ? (
+                      <ArrowDownLeft className="text-brand size-4" aria-hidden="true" />
+                    ) : (
+                      <ArrowUpRight className="text-brand size-4" aria-hidden="true" />
+                    )}
+                    {call.direction}
+                  </span>
+                </DetailField>
+                <DetailField label="Lead">
+                  <span>
+                    <Link to={`/leads/${call.lead}`} className="text-brand font-semibold hover:underline">
+                      {call.lead_name || "—"}
+                    </Link>
+                    {call.lead_reference_number && (
+                      <span className="text-muted-foreground ml-2 font-mono text-xs">
+                        {call.lead_reference_number}
+                      </span>
+                    )}
+                  </span>
+                </DetailField>
+                <DetailField label="Phone">
+                  {call.phone_number ? (
+                    <a className="text-brand hover:underline" href={`tel:${call.phone_number.replace(/[^0-9+]/g, "")}`}>
+                      {call.phone_number}
+                    </a>
+                  ) : null}
+                </DetailField>
+                <DetailField label="Caller">{call.caller}</DetailField>
+                <DetailField label="Logged by">{call.created_by_name}</DetailField>
+                <DetailField label="Duration">{call.duration_formatted}</DetailField>
+                <DetailField label="Outcome">{call.outcome?.replaceAll("_", " ")}</DetailField>
+                <DetailField label="Notes">
+                  {call.notes ? <span className="whitespace-pre-wrap">{call.notes}</span> : null}
+                </DetailField>
+                <DetailField label="Next action">{call.next_action}</DetailField>
+                <DetailField label="Next follow-up">
+                  {call.next_followup_at ? (
+                    <time dateTime={call.next_followup_at}>
+                      {fullDateTime(call.next_followup_at)}
+                    </time>
+                  ) : null}
+                </DetailField>
+                <DetailField label="Recording">
+                  {call.recording_url ? (
+                    <a
+                      href={call.recording_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand font-semibold hover:underline"
+                    >
+                      Open recording
+                    </a>
+                  ) : null}
+                </DetailField>
+              </dl>
+            </SheetBody>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function CallLog() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedCall, setSelectedCall] = useState<ApiCall | null>(null);
   const { user } = useAuth();
   const isStaff = !!(user?.is_staff || user?.is_superuser);
   const search = searchParams.get("search") ?? "";
@@ -185,6 +318,7 @@ export function CallLog() {
   const descending = ordering.startsWith("-");
 
   return (
+    <>
     <Card className="min-w-0 overflow-hidden">
       <CardHeader className="gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -370,7 +504,7 @@ export function CallLog() {
                     </TableRow>
                   )}
                   {!callsQuery.isLoading && rows.map((call) => (
-                    <CallTableRow key={call.id} call={call} />
+                    <CallTableRow key={call.id} call={call} onSelect={setSelectedCall} />
                   ))}
                 </TableBody>
               </Table>
@@ -405,5 +539,7 @@ export function CallLog() {
         )}
       </CardContent>
     </Card>
+    <CallDetailSheet call={selectedCall} onOpenChange={(open) => !open && setSelectedCall(null)} />
+    </>
   );
 }
