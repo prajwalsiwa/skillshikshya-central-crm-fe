@@ -1,10 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { callsService } from "@/services/calls.service";
-import type { CallSummaryParams } from "@/types/calls";
+import type { CallListParams, CallSummaryParams } from "@/types/calls";
 
 export function useCallSummary(params: CallSummaryParams = {}) {
   return useQuery({
     queryKey: ["calls", "summary", params],
     queryFn: () => callsService.summary(params),
+  });
+}
+
+export function useCalls(params: CallListParams = {}) {
+  return useQuery({
+    queryKey: ["calls", "list", params],
+    queryFn: () => callsService.list(params),
+    placeholderData: keepPreviousData,
   });
 }

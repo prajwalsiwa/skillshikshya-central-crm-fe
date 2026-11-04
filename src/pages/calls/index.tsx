@@ -10,23 +10,12 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HBarList, MiniBars } from "@/components/charts";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/auth";
 import { useCallSummary } from "@/hooks/use-calls";
 import { apiErrorMessage } from "@/lib/api";
-import type { CallSummaryParams } from "@/types/calls";
-
-const CALL_FILTER_KEYS = [
-  "search",
-  "direction",
-  "outcome",
-  "caller",
-  "notes",
-  "created_by",
-  "student",
-  "lead",
-  "branch_id",
-  "call_timestamp__gte",
-  "call_timestamp__lte",
-] as const satisfies readonly (keyof CallSummaryParams)[];
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { CallLog } from "@/pages/calls/call-log";
+import { getCallSummaryParams } from "@/pages/calls/call-filters";
 
 const NUMBER_FORMAT = new Intl.NumberFormat();
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -45,15 +34,6 @@ function formatDay(date: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!match) return date;
   return `${MONTHS[Number(match[2]) - 1]} ${Number(match[3])}`;
-}
-
-function getSummaryParams(searchParams: URLSearchParams): CallSummaryParams {
-  const params: CallSummaryParams = {};
-  for (const key of CALL_FILTER_KEYS) {
-    const value = searchParams.get(key);
-    if (value) params[key] = value;
-  }
-  return params;
 }
 
 function MetricCard({
@@ -95,7 +75,10 @@ function MetricCard({
 
 export default function CallsPage() {
   const [searchParams] = useSearchParams();
-  const summaryQuery = useCallSummary(getSummaryParams(searchParams));
+  const { user } = useAuth();
+  const isStaff = !!(user?.is_staff || user?.is_superuser);
+  const search = useDebouncedValue((searchParams.get("search") ?? "").trim(), 300);
+  const summaryQuery = useCallSummary(getCallSummaryParams(searchParams, search, isStaff));
   const summary = summaryQuery.data;
 
   return (
@@ -232,6 +215,7 @@ export default function CallsPage() {
           </section>
         </>
       )}
+      <CallLog />
     </div>
   );
 }

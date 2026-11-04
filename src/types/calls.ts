@@ -1,16 +1,43 @@
+import type { Paginated } from "@/types";
+
 export interface CallSummaryParams {
   search?: string;
-  direction?: string;
-  outcome?: string;
-  caller?: string;
-  notes?: string;
-  created_by?: string;
-  student?: string;
-  lead?: string;
-  branch_id?: string;
+  direction?: "inbound" | "outbound";
+  created_by?: number;
+  branch_id?: number;
   call_timestamp__gte?: string;
   call_timestamp__lte?: string;
 }
+
+export interface CallListParams extends CallSummaryParams {
+  page?: number;
+  page_size?: number;
+  ordering?: string;
+}
+
+export interface ApiCall {
+  id: number;
+  lead: number;
+  lead_name: string;
+  lead_reference_number: string | null;
+  call_timestamp: string;
+  direction: "inbound" | "outbound";
+  caller: string | null;
+  phone_number: string | null;
+  duration_seconds: number;
+  duration_formatted: string;
+  outcome: string | null;
+  notes: string | null;
+  recording_url: string | null;
+  next_followup_at: string | null;
+  next_action: string | null;
+  branch: number | null;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string;
+}
+
+export type CallListResponse = Paginated<ApiCall>;
 
 export interface CallSummaryDay {
   date: string;
