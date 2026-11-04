@@ -6,6 +6,8 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Download,
+  LoaderCircle,
   Search,
   X,
 } from "lucide-react";
@@ -28,12 +30,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/auth";
 import { useBranches } from "@/hooks/use-branches";
-import { useCalls } from "@/hooks/use-calls";
+import { useCalls, useExportCalls } from "@/hooks/use-calls";
 import { useUsers } from "@/hooks/use-users";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { apiErrorMessage } from "@/lib/api";
 import type { ApiCall } from "@/types/calls";
 import {
+  getCallSummaryParams,
   getCallListParams,
   getLocalDateValue,
   hasActiveCallFilters,
@@ -267,6 +270,7 @@ export function CallLog() {
   const debouncedSearch = useDebouncedValue(search.trim(), 300);
   const listParams = getCallListParams(searchParams, debouncedSearch, isStaff);
   const callsQuery = useCalls(listParams);
+  const exportCalls = useExportCalls();
   const usersQuery = useUsers(1, 100);
   const branchesQuery = useBranches(1, 100, "", isStaff);
   const page = listParams.page ?? 1;
@@ -316,6 +320,10 @@ export function CallLog() {
   const dateTo = searchParams.get("date_to") || "";
   const sortField = ordering.replace(/^-/, "");
   const descending = ordering.startsWith("-");
+  const exportParams = {
+    ...getCallSummaryParams(searchParams, debouncedSearch, isStaff),
+    ordering: listParams.ordering,
+  };
 
   return (
     <>
@@ -328,11 +336,26 @@ export function CallLog() {
               Search and filter calls across your branch.
             </CardDescription>
           </div>
-          {hasActiveCallFilters(searchParams) && (
-            <Button variant="outline" size="sm" onClick={clearFilters}>
-              <X aria-hidden="true" /> Clear filters
+          <div className="flex flex-wrap items-center gap-2">
+            {hasActiveCallFilters(searchParams) && (
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                <X aria-hidden="true" /> Clear filters
+              </Button>
+            )}
+            <Button
+              variant="brand"
+              size="sm"
+              disabled={exportCalls.isPending}
+              onClick={() => exportCalls.mutate(exportParams)}
+            >
+              {exportCalls.isPending ? (
+                <LoaderCircle className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Download aria-hidden="true" />
+              )}
+              {exportCalls.isPending ? "Preparing CSV…" : "Export CSV"}
             </Button>
-          )}
+          </div>
         </div>
 
         <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,2fr)_repeat(3,minmax(9rem,1fr))]">
