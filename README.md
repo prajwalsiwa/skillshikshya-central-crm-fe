@@ -16,7 +16,8 @@ React frontend for SkillShikshya Central CRM (counseling & sales operations).
 | `/` Dashboard | Live — team stats from the users API |
 | `/users` | Live — full CRUD (register, edit role/targets/shift/work-days, delete) |
 | `/roles` | Live — admin-only role groups + permission assignment |
-| `/leads`, `/calls`, `/call-minutes` | Placeholder — waiting on backend APIs |
+| `/calls` | Live — team call summary and charts |
+| `/leads`, `/call-minutes` | Placeholder — waiting on backend APIs |
 
 ## Development
 
